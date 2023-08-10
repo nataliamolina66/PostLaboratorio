@@ -1,1 +1,198 @@
+#include <Arduino.h>
+#include <ESP32Servo.h>
+#include "driver/ledc.h"
+#include <stdint.h>
+
+void configurarPWM(void); // Declaración anticipada de la función configurarPWM
+void configurarPWMServo(void); //Declaración de la función del PWM del servo
+
+// Definición de pines
+const int servoPin = 2;      // Pin donde se conecta el servo
+const int buttonPin1 = 22;    // Pin donde se conecta el botón B1 (dirige el servo en modo servo)
+const int buttonPin2 = 5;    // Pin donde se conecta el botón B2 (dirige el servo en modo servo)
+const int pulsador_b3 = 14; // Pin 14 donde se conecta el botón para seleccionar led dependiendo de la posición del servo 
+const int pulsador_b4 = 4;  // Pin 4 donde se conecta el botón que aumenta el brillo de las leds 
+
+// Paso 1: selección de parámetros de la señal PWM
+#define pwmChannel 0 // 16 canales 0-15
+
+#define ledRChannel 1
+#define ledGChannel 2
+#define ledBChannel 3
+
+#define freqPWM 5000 // Frecuencia en Hz
+#define freqPWM1 5000 // Frecuencia en Hz
+#define freqPWM2 5000 // Frecuencia en Hz
+
+#define resolution 8 // 1-16 bits de resolución
+
+const int  pinLedR = 18;
+const int  pinLedG  = 19;
+const int  pinLedB = 21;
+
+#define pinPWM 15 // GPIO 2 para tener la salida del PWM
+
+//VARIABLES DEL CONTADOR DE BOTÓN QUE SELECCIONA EL COLOR DE LED
+int contador = 0; 
+
+//VARIABLE DEL CONTADOR PARA EL BRILLO DE LAS LEDS
+int dutycycle  = 0; 
+
+Servo myservo;              // Objeto para controlar el servo
+int pos = 0;               // Posición inicial del servo (90 grados)
+const int increment = 90;   // Incremento para el movimiento del servo
+
+//Función que configura el PWM del servo 
+void configurarPWMServo() {
+  const int pwmChannelServo = 0;  // Canal PWM
+  const int freqPWMServo = 50;    // Frecuencia del PWM en Hz
+  const int resolutionServo = 8;  // Resolución del PWM en bits (8 bits)
+
+  // Paso 1: Configurar el módulo PWM para el servo
+  ledcSetup(pwmChannelServo, freqPWMServo, resolutionServo);
+
+  // Paso 2: Asociar el canal PWM al pin del servo
+  ledcAttachPin(servoPin, pwmChannelServo);
+}
+//Función que configura el PWM de las leds 
+void configurarPWM(void)
+{
+
+  // Paso 1: Configurar el módulo PWM
+  ledcSetup(pwmChannel, freqPWM, resolution);
+  ledcSetup(ledRChannel, freqPWM1, resolution);
+  ledcSetup(ledGChannel, freqPWM2, resolution);
+  ledcSetup(ledBChannel, freqPWM, resolution);
+
+  // Paso 2: seleccionar en que GPIO tendremos nuestra señal PWM
+  ledcAttachPin(pinPWM, pwmChannel);
+
+  ledcAttachPin(pinLedR, ledRChannel);
+  ledcAttachPin(pinLedG, ledGChannel);
+  ledcAttachPin(pinLedB, ledBChannel);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Hello, ESP32!");
+
+  configurarPWMServo(); //configuración del PWM del servo
+  pinMode(buttonPin1, INPUT_PULLUP);  // Configurar el botón B1 como entrada con pull-up
+  pinMode(buttonPin2, INPUT_PULLUP);  // Configurar el botón B2 como entrada con pull-up
+
+  configurarPWM(); //configuración del PWM de las leds 
+  pinMode(pulsador_b3, INPUT_PULLUP); // Configurar botón B3 como entrada con pull-up
+  pinMode(pulsador_b4, INPUT_PULLUP); // Configurar botón B4 como entrada con pull-up
+
+  myservo.attach(servoPin);  // Asociar el objeto servo al pin
+  myservo.write(pos);        // Inicializar la posición del servo
+}
+
+void loop() {
+
+// Limitar el contador para que esté entre 0 y 4
+  contador = (contador + 5) % 5;
+//Limitar el brillo de las leds
+  dutycycle  = (dutycycle  + 255) % 255; 
+
+// contador que cambia la posición del servo 
+if(digitalRead(pulsador_b3)== LOW){
+      contador++;
+      delay(300);
+      printf("+\n");
+      printf("Número de veces presionado: %d\n", contador);
+  }
+
+//SERVO EN CERO GRADOS Y LED VERDE ENCENDIDA
+  if (contador == 1) {
+    pos = 0;
+    myservo.write(pos);
+    delay(200);
+
+    printf("POSICIÓN: %d\n", pos);
+
+    if(digitalRead(pulsador_b4)== LOW){
+      dutycycle = dutycycle + 10;
+      printf("+\n");
+      printf("BRILLO: %d\n", dutycycle);
+      }
+    delay(300); 
+    ledcWrite(ledRChannel, dutycycle); //led verde encendida
+    ledcWrite(ledGChannel, 0); // 
+    ledcWrite(ledBChannel, 0); // 
+
+  }
+
+//SERVO EN 90 GRADOS Y LED AMARILLA ENCENDIDA
+  else if (contador == 2) {
+    pos = 90;
+    myservo.write(pos);
+    delay(200);
+    printf("POSICIÓN: %d\n", pos);
+
+    if(digitalRead(pulsador_b4)== LOW){
+      dutycycle = dutycycle + 10;
+      printf("+\n");
+      printf("BRILLO: %d\n", dutycycle);
+      }
+    delay(300); 
+    ledcWrite(ledRChannel, 0); 
+    ledcWrite(ledGChannel, dutycycle);// led amarilla encendida
+    ledcWrite(ledBChannel, 0); 
+  }
+
+//SERVO EN 180 GRADOS Y LED ROJA ENCENDIDA
+  else if (contador == 3) {
+    pos = 180;
+    myservo.write(pos);
+    delay(200);
+    printf("POSICIÓN: %d\n", pos);
+
+    if(digitalRead(pulsador_b4)== LOW){
+      dutycycle = dutycycle + 10;
+      printf("+\n");
+      printf("BRILLO: %d\n", dutycycle);
+      }
+    delay(300); 
+    ledcWrite(ledRChannel, 0); 
+    ledcWrite(ledGChannel, 0); 
+    ledcWrite(ledBChannel, dutycycle);// led roja encendida
+  }
+
+//SERVO EN MODO MANUAL CON BOTONES B1 Y B2
+  else if (contador == 4) {
+    ledcWrite(ledRChannel, 0); // Apagar LED rojo
+    ledcWrite(ledGChannel, 0); // Apagar LED verde
+    ledcWrite(ledBChannel, 0); // Apagar LED azul
+
+// Mover servo +90 grados si se presiona el botón B1
+  if (digitalRead(buttonPin1) == LOW) {
+    pos = 0;
+    myservo.write(pos);
+    delay(200); 
+    printf("POSICIÓN: %d\n", pos);
+
+
+  }
+
+  // Mover servo -90 grados si se presiona el botón B2
+  else if (digitalRead(buttonPin2) == LOW) {
+    pos = 180;
+    myservo.write(pos);
+    delay(200); 
+    printf("POSICIÓN: %d\n", pos);
+  }
+  }
+
+  else {
+    // Si el contador no está en ninguno de los valores deseados, todas las LEDs están apagadas.
+    pos = 0;
+    ledcWrite(ledRChannel, 0); // Apagar LED rojo
+    ledcWrite(ledGChannel, 0); // Apagar LED verde
+    ledcWrite(ledBChannel, 0); // Apagar LED azul
+  }  
+
+
+}
+
 
